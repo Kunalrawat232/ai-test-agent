@@ -52,6 +52,7 @@ from .test_designer import test_designer_node
 from .code_generator import code_generator_node
 from .execution_debug import execution_node, debug_node, should_retry
 from .checkpoint import save_checkpoint, load_checkpoint
+from integrations.trello import push_bugs_to_trello
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +120,7 @@ def finalise_node(state: PipelineState) -> dict[str, Any]:
 
     # Bug reports from debug agent
     bug_reports = debug.get("bug_reports", [])
+    feature_name = state.requirement_analysis.get("feature_name", "unknown")
     if bug_reports:
         report_lines.append("## Real Bugs Found")
         for br in bug_reports:
@@ -127,6 +129,14 @@ def finalise_node(state: PipelineState) -> dict[str, Any]:
             report_lines.append(f"**Expected:** {br.get('expected', '')}")
             report_lines.append(f"**Actual:** {br.get('actual', '')}")
             report_lines.append("")
+
+    # Push bugs to Trello
+    trello_cards = push_bugs_to_trello(bug_reports, feature_name=feature_name)
+    if trello_cards:
+        report_lines.append("## Trello Cards Created")
+        for card in trello_cards:
+            report_lines.append(f"- [{card['name']}]({card['url']})")
+        report_lines.append("")
 
     # Error log
     if state.error_log:
